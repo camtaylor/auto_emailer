@@ -3,14 +3,25 @@ import requests
 import re
 import csv
 import webbrowser
-import form_filler
-
+import thread
+from selenium import webdriver
 
 accepted_tlds = ["com", "net", "org", "co"]
+keywords = ""
+domain_name = ""
+searches = ""
+searches_per_day = ""
+
+
+EMAIL = "smartin@nametailor.com"
+FIRST_NAME = "Scott "
+LAST_NAME = "Martin"
+PHONE = "203-693-1112"
+
 
 def get_links(search_term, num_results):
   page = requests.get("https://www.google.com/search?q={}&num={}".format(search_term, num_results))
-  soup = BeautifulSoup(page.content, "lxml")
+  soup = BeautifulSoup(page.content)
   links = soup.findAll("a")
   domain_list = []
   for link in soup.find_all("a", href=re.compile("(?<=/url\?q=)(htt.*://.*)")):
@@ -68,7 +79,7 @@ def search_for_contact_link(domain):
     page = requests.get("http://" + domain, timeout=1).text
   except:
     return ""
-  soup = BeautifulSoup(page, "lxml")
+  soup = BeautifulSoup(page)
   links = soup.findAll('a', href=True, text=re.compile('Contact.*', re.IGNORECASE))
   if len(links) > 0 and len(links[0]) > 0:
     link = links[0]['href']
@@ -83,10 +94,120 @@ def search_for_contact_link(domain):
       if "http://" not in link:
         link = "http://" + link
       # Go to contact page
-      form_filler.send_contact_form(link)
+      send_contact_form(link)
     return results
   else:
     return ""
+
+
+def fill_form(form):
+
+  name_filled = False
+  email_filled = False
+  message_filled = False
+  phone_filled = False
+
+  email = """Hello,
+
+  I am contacting you because I thought you might be interested in knowing that we are selling our domain {} ; the search term " {} " receives an average of  {} exact-match searches per month (roughly {} per day) on Google alone and owning this domain would be an asset to your marketing efforts.
+
+  85% of people search online for local services.
+  94% of those people don't go beyond the first search page.
+
+  If you are interested or have any questions about the domain please don't hesitate to ask.""".format(domain_name,
+                                                                                                       keywords,
+                                                                                                       searches,
+                                                                                                       searches_per_day)
+
+  message_box = form.find_element_by_tag_name('textarea')
+  if message_box:
+    message_box.send_keys(email)
+    message_filled = True
+  inputs = [input for input in form.find_elements_by_tag_name('input') if input.get_attribute('type') != "hidden"]
+  labels = form.find_elements_by_tag_name('label')
+
+
+  num_inputs = len(inputs)
+  num_labels = len(labels)
+  # One label to each input
+  if not num_labels > num_inputs:
+    for index, label in enumerate(labels):
+      label_text = label.get_attribute('innerHTML').lower()
+      print label_text
+      if "mail" in label_text:
+        inputs[index].send_keys(EMAIL)
+        email_filled = True
+      elif "first" in label_text:
+        inputs[index].send_keys(FIRST_NAME)
+      elif "last" in label_text and not name_filled:
+        inputs[index].send_keys(LAST_NAME)
+        name_filled = True
+      elif "name" in label_text and not name_filled:
+        inputs[index].send_keys(FIRST_NAME + LAST_NAME)
+        name_filled = True
+
+
+  attributes = ['placeholder', 'innerHTML', 'value']
+  for attribute in attributes:
+    for input_box in inputs:
+      attribute_text = input_box.get_attribute(attribute)
+      print attribute_text
+      if not attribute_text:
+        continue
+      attribute_text = attribute_text.lower()
+      if "mail" in attribute_text and not email_filled:
+        input_box.send_keys(EMAIL)
+        email_filled = True
+      elif "first" in attribute_text and not name_filled:
+        input_box.send_keys(FIRST_NAME)
+      elif "last" in attribute_text and not name_filled:
+        input_box.send_keys(LAST_NAME)
+        name_filled = True
+      elif "name" in attribute_text and not name_filled:
+        input_box.send_keys(FIRST_NAME + LAST_NAME)
+        name_filled = True
+      elif "phone" in attribute_text:
+        input_box.send_keys(PHONE)
+        phone_filled = True
+
+
+
+        # Fill by type of input
+  for input_box in inputs:
+    type = input_box.get_attribute('type')
+    print type
+    if type == "email" and not email_filled:
+      input_box.send_keys(EMAIL)
+      email_filled = True
+      continue
+    if type == "tel" and not phone_filled:
+      input_box.send_keys(PHONE)
+      phone_filled = True
+      continue
+    if type == "radio" or type == "checkbox":
+      input_box.click()
+    if type == "submit" and message_filled and name_filled and email_filled:
+      # input_box.click()
+      print "Found button"
+    elif type == "submit":
+      inputs[0].send_keys(FIRST_NAME + LAST_NAME)
+      inputs[1].send_keys(EMAIL)
+      print "Guessing..."
+
+
+def send_contact_form(link):
+  print link
+  driver = webdriver.Firefox()
+  driver.get(link)
+  try:
+    form = driver.find_element_by_xpath("//form[1]")
+    if form:
+
+      fill_form(form)
+  except Exception as e:
+    print e
+    print "Failed"
+    driver.close()
 
 
 if __name__ == "__main__":
@@ -100,6 +221,8 @@ if __name__ == "__main__":
     for line in reader:
       top_million_sites.append(line[0])
     top_million_sites = set(top_million_sites)
+
+
 
 
   keywords = raw_input("Keywords >>>")
