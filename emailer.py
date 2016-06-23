@@ -4,6 +4,7 @@ import re
 import csv
 import webbrowser
 import thread
+import time
 from selenium import webdriver
 
 accepted_tlds = ["com", "net", "org", "co"]
@@ -94,7 +95,7 @@ def search_for_contact_link(domain):
       if "http://" not in link:
         link = "http://" + link
       # Go to contact page
-      send_contact_form(link)
+      thread.start_new_thread(send_contact_form, (link,))
     return results
   else:
     return ""
@@ -145,6 +146,9 @@ def fill_form(form):
       elif "name" in label_text and not name_filled:
         inputs[index].send_keys(FIRST_NAME + LAST_NAME)
         name_filled = True
+      elif "phone" in label_text:
+        inputs[index].send_keys(PHONE)
+        phone_filled = True
 
 
   attributes = ['placeholder', 'innerHTML', 'value']
@@ -187,11 +191,15 @@ def fill_form(form):
     if type == "radio" or type == "checkbox":
       input_box.click()
     if type == "submit" and message_filled and name_filled and email_filled:
-      # input_box.click()
+      input_box.click()
+      time.sleep(3)
+      driver.close
       print "Found button"
     elif type == "submit":
-      inputs[0].send_keys(FIRST_NAME + LAST_NAME)
-      inputs[1].send_keys(EMAIL)
+      if not name_filled:
+        inputs[0].send_keys(FIRST_NAME + LAST_NAME)
+        inputs[1].send_keys(EMAIL)
+        input_box.click()
       print "Guessing..."
 
 
