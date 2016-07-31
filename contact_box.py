@@ -241,7 +241,7 @@ if __name__ == "__main__":
   else:
     keywords = raw_input("Keywords >>>")
     searches = raw_input("Searches per month>>>")
-    domain_list.append(keywords, searches)
+    domain_list.append([keywords, searches])
 
 
   for marketed_domain in domain_list:
