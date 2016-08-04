@@ -6,6 +6,7 @@ import webbrowser
 import thread
 import time
 from selenium import webdriver
+from selenium.webdriver.support.select import Select
 import os
 
 
@@ -115,6 +116,11 @@ def fill_form(form):
     message_filled = True
   inputs = [input for input in form.find_elements_by_tag_name('input') if input.get_attribute('type') != "hidden"]
   labels = form.find_elements_by_tag_name('label')
+  selects = [input for input in form.find_elements_by_tag_name('select')]
+  for select in selects:
+    options = [x for x in select.find_elements_by_tag_name("option")]
+    options[-1].click()
+
 
 
   num_inputs = len(inputs)
