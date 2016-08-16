@@ -2,22 +2,13 @@ from bs4 import BeautifulSoup
 import requests
 import re
 import csv
-import webbrowser
-import thread
-import time
-from selenium import webdriver
+import os
 
 accepted_tlds = ["com", "net", "org", "co"]
 keywords = ""
 domain_name = ""
 searches = ""
 searches_per_day = ""
-
-
-EMAIL = "smartin@nametailor.com"
-FIRST_NAME = "Scott "
-LAST_NAME = "Martin"
-PHONE = "203-693-1112"
 
 
 def get_links(search_term, num_results):
@@ -95,127 +86,11 @@ def search_for_contact_link(domain):
       if "http://" not in link:
         link = "http://" + link
       # Go to contact page
-      thread.start_new_thread(send_contact_form, (link,))
+      results = search_for_email(link)
     return results
   else:
     return ""
 
-
-def fill_form(form):
-
-  name_filled = False
-  email_filled = False
-  message_filled = False
-  phone_filled = False
-
-  email = """Hello,
-
-  I am contacting you because I thought you might be interested in knowing that we are selling our domain {} ; the search term " {} " receives an average of  {} exact-match searches per month (roughly {} per day) on Google alone and owning this domain would be an asset to your marketing efforts.
-
-  85% of people search online for local services.
-  94% of those people don't go beyond the first search page.
-
-  If you are interested or have any questions about the domain please don't hesitate to ask.""".format(domain_name,
-                                                                                                       keywords,
-                                                                                                       searches,
-                                                                                                       searches_per_day)
-
-  message_box = form.find_element_by_tag_name('textarea')
-  if message_box:
-    message_box.send_keys(email)
-    message_filled = True
-  inputs = [input for input in form.find_elements_by_tag_name('input') if input.get_attribute('type') != "hidden"]
-  labels = form.find_elements_by_tag_name('label')
-
-
-  num_inputs = len(inputs)
-  num_labels = len(labels)
-  # One label to each input
-  if not num_labels > num_inputs:
-    for index, label in enumerate(labels):
-      label_text = label.get_attribute('innerHTML').lower()
-      print label_text
-      if "mail" in label_text:
-        inputs[index].send_keys(EMAIL)
-        email_filled = True
-      elif "first" in label_text:
-        inputs[index].send_keys(FIRST_NAME)
-      elif "last" in label_text and not name_filled:
-        inputs[index].send_keys(LAST_NAME)
-        name_filled = True
-      elif "name" in label_text and not name_filled:
-        inputs[index].send_keys(FIRST_NAME + LAST_NAME)
-        name_filled = True
-      elif "phone" in label_text:
-        inputs[index].send_keys(PHONE)
-        phone_filled = True
-
-
-  attributes = ['placeholder', 'innerHTML', 'value']
-  for attribute in attributes:
-    for input_box in inputs:
-      attribute_text = input_box.get_attribute(attribute)
-      print attribute_text
-      if not attribute_text:
-        continue
-      attribute_text = attribute_text.lower()
-      if "mail" in attribute_text and not email_filled:
-        input_box.send_keys(EMAIL)
-        email_filled = True
-      elif "first" in attribute_text and not name_filled:
-        input_box.send_keys(FIRST_NAME)
-      elif "last" in attribute_text and not name_filled:
-        input_box.send_keys(LAST_NAME)
-        name_filled = True
-      elif "name" in attribute_text and not name_filled:
-        input_box.send_keys(FIRST_NAME + LAST_NAME)
-        name_filled = True
-      elif "phone" in attribute_text:
-        input_box.send_keys(PHONE)
-        phone_filled = True
-
-
-
-        # Fill by type of input
-  for input_box in inputs:
-    type = input_box.get_attribute('type')
-    print type
-    if type == "email" and not email_filled:
-      input_box.send_keys(EMAIL)
-      email_filled = True
-      continue
-    if type == "tel" and not phone_filled:
-      input_box.send_keys(PHONE)
-      phone_filled = True
-      continue
-    if type == "radio" or type == "checkbox":
-      input_box.click()
-    if type == "submit" and message_filled and name_filled and email_filled:
-      input_box.click()
-      time.sleep(3)
-      driver.close
-      print "Found button"
-    elif type == "submit":
-      if not name_filled:
-        inputs[0].send_keys(FIRST_NAME + LAST_NAME)
-        inputs[1].send_keys(EMAIL)
-        input_box.click()
-      print "Guessing..."
-
-
-def send_contact_form(link):
-  print link
-  driver = webdriver.Firefox()
-  driver.get(link)
-  try:
-    form = driver.find_element_by_xpath("//form[1]")
-    if form:
-
-      fill_form(form)
-  except Exception as e:
-    print e
-    print "Failed"
-    driver.close()
 
 
 if __name__ == "__main__":
@@ -230,33 +105,49 @@ if __name__ == "__main__":
       top_million_sites.append(line[0])
     top_million_sites = set(top_million_sites)
 
+  csv_option = raw_input("Read from domains.csv? (y/n): ")
+  domain_list = []
+  if "y" in csv_option:
+    with open('domains.csv', 'rb') as f:
+      reader = csv.reader(f)
+      for line in reader:
+        keywords = line[0]
+        searches = line[1]
+        domain_list.append([keywords, searches])
+  else:
+    keywords = raw_input("Keywords >>>")
+    searches = raw_input("Searches per month>>>")
+    domain_list.append([keywords, searches])
 
 
-
-  keywords = raw_input("Keywords >>>")
-  price = raw_input("Price >>>")
-  searches = raw_input("Searches per month>>>")
-  searches_per_day = str(int(round(int(searches)/30)))
-  domain_name = keywords.title().strip().replace(" ", "") + ".com"
-  domains = get_links(keywords, int(raw_input("Results to scrape>>>")))
-  small_businesses = []
-  for domain in domains:
-    if domain not in top_million_sites:
-      small_businesses.append(domain)
-
-  num_emails, emails = get_emails(small_businesses)
-
-  print "v----Success rate"
-  print float(num_emails) / float(len(small_businesses))
-  final_list = []
-  for email in emails:
-    final_list.extend(list(set([e.lower() for e in email if e.split(".")[-1] in accepted_tlds])))
-
-  print final_list
-
-  # Write csv file with scraped emails.
+  # Write headers for csv file with scraped emails.
   with open('emails.csv', 'w') as csvfile:
     writer = csv.writer(csvfile)
     writer.writerow(["Name", "Stage", "Deal Size", "Notes", "Domain", "Keywords", "Searches", "Searches/Day"])
-    for email in final_list:
-      writer.writerow([email, "Lead", price, "", domain_name, keywords.strip(), searches, searches_per_day])
+
+  final_list = []
+  for marketed_domain in domain_list:
+    keywords = marketed_domain[0]
+    searches = marketed_domain[1]
+    searches_per_day = str(int(round(int(searches) / 30)))
+    domain_name = keywords.title().strip().replace(" ", "") + ".com"
+    domains = get_links(keywords, 180)
+    small_businesses = []
+    for domain in domains:
+      if domain not in top_million_sites:
+        small_businesses.append(domain)
+
+    num_emails, emails = get_emails(small_businesses)
+
+    print "v----Success rate"
+    print float(num_emails) / float(len(small_businesses))
+    for email in emails:
+      final_list.extend(list(set([e.lower() for e in email if e.split(".")[-1] in accepted_tlds])))
+
+    print final_list
+
+    # Append csv file with scraped emails.
+    with open('emails.csv', 'a') as csvfile:
+      writer = csv.writer(csvfile)
+      for email in final_list:
+        writer.writerow([email, "Lead","", "", domain_name, keywords.strip(), searches, str(int(round(int(searches)/30)))])
